@@ -1,10 +1,13 @@
 const program = require('commander');
 const firebase = require('firebase');
 const pkg = require('./package.json');
+
+require('dotenv').config();
+
 const firebaseConfig = {
-  apiKey: "AIzaSyDhUPAv4jiCtix2kJ0BDi8SEwPnyFS3aFU",
-  authDomain: "node-cli-money-spend.firebaseapp.com",
-  databaseURL: "https://node-cli-money-spend.firebaseio.com",
+  apiKey: process.env.FIREBASE_API_KEY,
+  authDomain: process.env.FIREBASE_AUTH_DOMAIN,
+  databaseURL: process.env.FIREBASE_DATABASE_URL,
 };
 
 function FirebaseService(firebase, config) {
@@ -33,20 +36,6 @@ FirebaseService.prototype = {
 
 
 const firebaseService = new FirebaseService(firebase, firebaseConfig);
-// firebaseService.writeData('logs', { timestamp: Date.now(), value: Math.random() }).then(value => {
-//   console.log('save success');
-//   return firebaseService.findInRangeValue('logs', 0.1, 0.3);
-// })
-// .then(query => {
-//   query.once("value", function(snapshot) {
-//     console.log(snapshot.val());
-//   });
-//   // process.exit();
-// })
-// .catch(err => {
-//   console.log('error:', err);
-//   process.exit();
-// });
 
 program
   .version(pkg.version)
