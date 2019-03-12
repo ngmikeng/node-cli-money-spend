@@ -1,6 +1,9 @@
 const program = require('commander');
 const firebase = require('firebase');
 const pkg = require('./package.json');
+const clc = require('cli-color');
+const clui = require('clui');
+const Line = clui.Line;
 
 require('dotenv').config();
 
@@ -34,6 +37,33 @@ FirebaseService.prototype = {
   }
 };
 
+function _printLogTable(objData) {
+  if (typeof objData === 'object' && objData !== null) {
+    const headers = new Line()
+      .padding(2)
+      .column('Timestamp', 30, [clc.cyan])
+      .column('Description', 20, [clc.cyan])
+      .column('Value', 20, [clc.cyan])
+      .fill()
+      .output();
+    
+    for (const key in objData) {
+      if (objData.hasOwnProperty(key)) {
+        const record = objData[key];
+        if (typeof record === 'object' && record !== null) {
+          const line = new Line()
+            .padding(2)
+            .column(new Date(record.timestamp).toLocaleString(), 30)
+            .column(record.description, 20)
+            .column(record.value + "", 20)
+            .fill()
+            .output();
+        }
+      }
+    }
+  }
+}
+
 
 const firebaseService = new FirebaseService(firebase, firebaseConfig);
 
@@ -64,7 +94,9 @@ if (program.create && program.description && program.value) {
 if (program.findInRange && program.min && program.max) {
   var query = firebaseService.findInRangeValue('logs', parseFloat(program.min), parseFloat(program.max));
   query.once("value", function (snapshot) {
-    console.log(snapshot.val());
+    const result = snapshot.val();
+    console.log(result);
+    _printLogTable(result);
     process.exit();
   });
 }
