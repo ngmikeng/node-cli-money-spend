@@ -1,9 +1,11 @@
+#!/usr/bin/env node
 const program = require('commander');
 const firebase = require('firebase');
 const pkg = require('./package.json');
 const clc = require('cli-color');
 const clui = require('clui');
 const Line = clui.Line;
+const Spinner = clui.Spinner;
 
 require('dotenv').config();
 
@@ -29,8 +31,8 @@ FirebaseService.prototype = {
 
     return this.firebase.database().ref().update(updates);
   },
-  findInRangeValue: function(key, min, max) {
-    var ref = this.firebase.database().ref(key);
+  findInRangeValue: function(dbKey, min, max) {
+    var ref = this.firebase.database().ref(dbKey);
     var query = ref.orderByChild("value").startAt(min, 'value').endAt(max, 'value');
 
     return query;
@@ -41,7 +43,7 @@ function _printLogTable(objData) {
   if (typeof objData === 'object' && objData !== null) {
     const headers = new Line()
       .padding(2)
-      .column('Timestamp', 30, [clc.cyan])
+      .column('Created at', 30, [clc.cyan])
       .column('Description', 20, [clc.cyan])
       .column('Value', 20, [clc.cyan])
       .fill()
@@ -75,28 +77,49 @@ program
   .option('-f, --findInRange', 'Find data in range value')
   .option('-s, --min [value]', 'Min value')
   .option('-e, --max [value]', 'Max value')
-  .parse(process.argv);
+
+program.on('--help', function(){
+  console.log('')
+  console.log('Examples:');
+  console.log(' # Create a record with description and value');
+  console.log(' $ node index.js -x -d "cafe with friends" -v 10000');
+  console.log(' # Query records with value from 1000 to 100000');
+  console.log(' $ node index.js -f -s 1000 -e 100000');
+});
+
+program.parse(process.argv);
 
 if (program.create && program.description && program.value) {
+  const spin = new Spinner('Writing data...');
+  spin.start();
   firebaseService.writeData('logs', {
     timestamp: Date.now(),
     description: program.description,
     value: program.value * 1
   }).then(value => {
+    spin.stop();
     console.log('saved');
     process.exit();
   })
   .catch(err => {
+    spin.stop();
     console.log('error:', err);
     process.exit();
   });
 }
 if (program.findInRange && program.min && program.max) {
-  var query = firebaseService.findInRangeValue('logs', parseFloat(program.min), parseFloat(program.max));
+  const spin = new Spinner('Fetching data...');
+  spin.start();
+  const query = firebaseService.findInRangeValue('logs', parseFloat(program.min), parseFloat(program.max));
   query.once("value", function (snapshot) {
+    spin.stop();
     const result = snapshot.val();
-    console.log(result);
     _printLogTable(result);
     process.exit();
+  }, function(err) {
+    spin.stop();
+    if (err && err.message) {
+      console.log(err.message);
+    } 
   });
 }
