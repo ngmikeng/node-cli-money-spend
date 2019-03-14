@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 const program = require('commander');
 const firebase = require('firebase');
+const inquirer = require('inquirer');
 const pkg = require('./package.json');
 const clc = require('cli-color');
 const clui = require('clui');
@@ -66,6 +67,21 @@ function _printLogTable(objData) {
   }
 }
 
+function _writeData(data) {
+  const spin = new Spinner('Writing data...');
+  spin.start();
+  firebaseService.writeData('logs', data).then(value => {
+    spin.stop();
+    console.log('saved');
+    process.exit();
+  })
+  .catch(err => {
+    spin.stop();
+    console.log('error:', err);
+    process.exit();
+  });
+}
+
 
 const firebaseService = new FirebaseService(firebase, firebaseConfig);
 
@@ -77,6 +93,7 @@ program
   .option('-f, --findInRange', 'Find data in range value')
   .option('-s, --min [value]', 'Min value')
   .option('-e, --max [value]', 'Max value')
+  .option('-i, --input', 'Create a record by answer')
 
 program.on('--help', function(){
   console.log('')
@@ -90,21 +107,10 @@ program.on('--help', function(){
 program.parse(process.argv);
 
 if (program.create && program.description && program.value) {
-  const spin = new Spinner('Writing data...');
-  spin.start();
-  firebaseService.writeData('logs', {
+  _writeData({
     timestamp: Date.now(),
     description: program.description,
     value: program.value * 1
-  }).then(value => {
-    spin.stop();
-    console.log('saved');
-    process.exit();
-  })
-  .catch(err => {
-    spin.stop();
-    console.log('error:', err);
-    process.exit();
   });
 }
 if (program.findInRange && program.min && program.max) {
@@ -121,5 +127,28 @@ if (program.findInRange && program.min && program.max) {
     if (err && err.message) {
       console.log(err.message);
     } 
+  });
+}
+if (program.input) {
+  const questions = [
+    {
+      type: 'input',
+      name: 'description',
+      message: "Spend this money for what?"
+    },
+    {
+      type: 'input',
+      name: 'value',
+      message: "How much?"
+    }
+  ];
+
+  inquirer.prompt(questions).then(answers => {
+    const data = {
+      timestamp: Date.now(),
+      description: answers.description,
+      value: answers.value * 1
+    };
+    _writeData(data);
   });
 }

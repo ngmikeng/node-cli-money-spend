@@ -20,6 +20,7 @@
     "clui": "^0.3.6",
     "commander": "^2.19.0",
     "dotenv": "^6.2.0",
-    "firebase": "^5.8.5"
+    "firebase": "^5.8.5",
+    "inquirer": "^6.2.2"
   }
 }
