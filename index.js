@@ -32,9 +32,10 @@ FirebaseService.prototype = {
 
     return this.firebase.database().ref().update(updates);
   },
-  findInRangeValue: function(dbKey, min, max) {
+  findInRangeValue: function(dbKey, propKey, min, max) {
+    propKey = propKey ? propKey : 'value';
     var ref = this.firebase.database().ref(dbKey);
-    var query = ref.orderByChild("value").startAt(min, 'value').endAt(max, 'value');
+    var query = ref.orderByChild(propKey).startAt(min, propKey).endAt(max, propKey);
 
     return query;
   }
@@ -57,8 +58,8 @@ function _printLogTable(objData) {
           const line = new Line()
             .padding(2)
             .column(new Date(record.timestamp).toLocaleString(), 30)
-            .column(record.description, 20)
-            .column(record.value + "", 20)
+            .column(record.description || 'N/A', 20)
+            .column(record.value + "" || 'N/A', 20)
             .fill()
             .output();
         }
@@ -82,6 +83,10 @@ function _writeData(data) {
   });
 }
 
+function _isNumber(value) {
+  return typeof value === 'number' && !isNaN(value);
+}
+
 
 const firebaseService = new FirebaseService(firebase, firebaseConfig);
 
@@ -90,18 +95,69 @@ program
   .option('-x, --create', 'Create a record')
   .option('-d, --description [value]', 'Add description')
   .option('-v, --value [value]', 'Add value')
-  .option('-f, --findInRange', 'Find data in range value')
-  .option('-s, --min [value]', 'Min value')
-  .option('-e, --max [value]', 'Max value')
   .option('-i, --input', 'Create a record by answer')
+
+program
+  .command('search')
+  .description('Find records data from x value to y value')
+  .action(function(prop, options){
+    const questions = [
+    {
+      type: 'list',
+      name: 'searchBy',
+      message: "Search by",
+      choices: ['value', 'timestamp'],
+      default: 'value'
+    },
+    {
+      type: 'input',
+      name: 'startValue',
+      message: "Start value"
+    },
+    {
+      type: 'input',
+      name: 'endValue',
+      message: "End value"
+    }
+  ];
+
+  inquirer.prompt(questions).then(answers => {
+    const prop = answers.searchBy;
+    let startValue = parseFloat(answers.startValue);
+    let endValue = parseFloat(answers.endValue);
+    if (prop === 'timestamp') {
+      startValue = new Date(answers.startValue).getTime();
+      endValue = new Date(answers.endValue).getTime();
+    }
+    if (_isNumber(startValue) && _isNumber(endValue)) {
+      const spin = new Spinner('Fetching data...');
+      spin.start();
+      const query = firebaseService.findInRangeValue('logs', prop, startValue, endValue);
+      query.once("value", function (snapshot) {
+        spin.stop();
+        const result = snapshot.val();
+        _printLogTable(result);
+        process.exit();
+      }, function(err) {
+        spin.stop();
+        if (err && err.message) {
+          console.log(err.message);
+        } 
+      });
+    } else {
+      console.log('Invalid Input');
+      process.exit();
+    }
+  });
+
+    
+  });
 
 program.on('--help', function(){
   console.log('')
   console.log('Examples:');
   console.log(' # Create a record with description and value');
-  console.log(' $ node index.js -x -d "cafe with friends" -v 10000');
-  console.log(' # Query records with value from 1000 to 100000');
-  console.log(' $ node index.js -f -s 1000 -e 100000');
+  console.log('   $ node index.js -x -d "cafe with friends" -v 10000');
 });
 
 program.parse(process.argv);
@@ -113,22 +169,7 @@ if (program.create && program.description && program.value) {
     value: program.value * 1
   });
 }
-if (program.findInRange && program.min && program.max) {
-  const spin = new Spinner('Fetching data...');
-  spin.start();
-  const query = firebaseService.findInRangeValue('logs', parseFloat(program.min), parseFloat(program.max));
-  query.once("value", function (snapshot) {
-    spin.stop();
-    const result = snapshot.val();
-    _printLogTable(result);
-    process.exit();
-  }, function(err) {
-    spin.stop();
-    if (err && err.message) {
-      console.log(err.message);
-    } 
-  });
-}
+
 if (program.input) {
   const questions = [
     {
